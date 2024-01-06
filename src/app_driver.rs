@@ -11,6 +11,7 @@ enum ManagerCommand {
     Edit(usize),
     List,
     Quit,
+    NoOp,
 }
 
 pub struct App {
@@ -26,7 +27,7 @@ impl App {
 
     fn print_prompt(&self) {
         println!("\n|- --------------------- -|");
-        println!("|       TaskManager       |");
+        println!("|-      TaskManager      -|");
         println!("|- --------------------- -|");
         println!("|- create                -|");
         println!("|- remove <idx>          -|");
@@ -45,7 +46,7 @@ impl App {
         let mut iter = input.split_whitespace();
         let command = match iter.next() {
             Some(command) => command,
-            None => return Ok(ManagerCommand::Quit),
+            None => return Ok(ManagerCommand::NoOp),
         };
 
         match command.to_lowercase().as_str() {
@@ -257,8 +258,7 @@ impl App {
                     }
                 },
                 Ok(ManagerCommand::Remove(index)) => {
-                    let result = self.m_task_manager.take_task(index);
-                    if let None = result {
+                    if let None = self.m_task_manager.take_task(index) {
                         println!("   Error: index out of bounds");
                     }
                 }
@@ -278,6 +278,7 @@ impl App {
                 Ok(ManagerCommand::Quit) => {
                     break;
                 }
+                Ok(ManagerCommand::NoOp) => {}
                 Err(e) => {
                     println!("   Error: {}", e);
                 }
