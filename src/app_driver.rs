@@ -67,6 +67,22 @@ impl App {
         std::io::stdout().flush().unwrap();
     }
 
+    fn print_help_prompt(&mut self) {
+        println!("\n|- ------------------------------------------------- -|");
+        println!("|-                     TaskManager                   -|");
+        println!("|- ------------------------------------------------- -|");
+        println!("|- create        -> add a new task to the list       -|");
+        println!("|- remove <idx>  -> remove the n'th task in the list -|");
+        println!("|- edit   <idx>  -> edit the n'th task in the list   -|");
+        println!("|- tick   <days> -> subtract n days from all tasks   -|");
+        println!("|- list          -> list all tasks in the list       -|");
+        println!("|- help          -> toggle command descriptions      -|");
+        println!("|- quit          -> exit application                 -|");
+        println!("|- ------------------------------------------------- -|\n");
+        print!("|> ");
+        std::io::stdout().flush().unwrap();
+    }
+
     fn read_input() -> Result<ManagerCommand> {
         let mut input = String::new();
         std::io::stdin().read_line(&mut input).unwrap();
@@ -322,22 +338,6 @@ impl App {
         Ok(())
     }
 
-    fn handle_help(&mut self) {
-        println!("\n|- ------------------------------------------------- -|");
-        println!("|-                     TaskManager                   -|");
-        println!("|- ------------------------------------------------- -|");
-        println!("|- create        -> add a new task to the list       -|");
-        println!("|- remove <idx>  -> remove the n'th task in the list -|");
-        println!("|- edit   <idx>  -> edit the n'th task in the list   -|");
-        println!("|- tick   <days> -> subtract n days from all tasks   -|");
-        println!("|- list          -> list all tasks in the list       -|");
-        println!("|- help          -> toggle command descriptions      -|");
-        println!("|- quit          -> exit application                 -|");
-        println!("|- ------------------------------------------------- -|\n");
-        print!("|> ");
-        std::io::stdout().flush().unwrap();
-    }
-
     fn handle_quit(&mut self) -> Result<()> {
         let mut file = std::fs::File::create("task_manager.json")?;
         let json = serde_json::to_string(&self.m_task_manager)?;
@@ -349,7 +349,7 @@ impl App {
     pub fn run(&mut self) -> Result<()> {
         loop {
             if self.m_print_help {
-                self.handle_help();
+                self.print_help_prompt();
             } else {
                 self.print_prompt();
             }
