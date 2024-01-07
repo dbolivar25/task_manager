@@ -39,7 +39,7 @@ Ensure you have Rust installed on your system. You can install Rust via rustup.
 Clone the repository and navigate to the project directory:
 
 ```bash
-git clone https://github.com/dbolivar25/task_manager
+git clone https://github.com/dbolivar25/task_manager.git
 cd task_manager
 ```
 
