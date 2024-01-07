@@ -42,9 +42,9 @@ impl App {
 
         dbg!(&task_manager);
 
-        return App {
+        App {
             m_task_manager: task_manager,
-        };
+        }
     }
 
     fn print_prompt(&self) {
@@ -73,10 +73,10 @@ impl App {
 
         match command.to_lowercase().as_str() {
             "create" => {
-                if let None = iter.next() {
-                    return Ok(ManagerCommand::Create);
+                if iter.next().is_none() {
+                    Ok(ManagerCommand::Create)
                 } else {
-                    return Err(anyhow!("create command does not take arguments"));
+                    Err(anyhow!("create command does not take arguments"))
                 }
             }
             "remove" => {
@@ -85,11 +85,11 @@ impl App {
                     None => return Err(anyhow!("remove command takes one argument")),
                 };
 
-                if let Some(_) = iter.next() {
+                if iter.next().is_some() {
                     return Err(anyhow!("remove command takes only one argument"));
                 }
 
-                return Ok(ManagerCommand::Remove(index));
+                Ok(ManagerCommand::Remove(index))
             }
             "edit" => {
                 let index = match iter.next() {
@@ -97,27 +97,27 @@ impl App {
                     None => return Err(anyhow!("edit command takes one argument")),
                 };
 
-                if let Some(_) = iter.next() {
+                if iter.next().is_some() {
                     return Err(anyhow!("edit command takes only one argument"));
                 }
 
-                return Ok(ManagerCommand::Edit(index));
+                Ok(ManagerCommand::Edit(index))
             }
             "list" => {
-                if let Some(_) = iter.next() {
+                if iter.next().is_some() {
                     return Err(anyhow!("list command does not take arguments"));
                 }
 
-                return Ok(ManagerCommand::List);
+                Ok(ManagerCommand::List)
             }
             "quit" => {
-                if let Some(_) = iter.next() {
+                if iter.next().is_some() {
                     return Err(anyhow!("quit command does not take arguments"));
                 }
 
-                return Ok(ManagerCommand::Quit);
+                Ok(ManagerCommand::Quit)
             }
-            command => return Err(anyhow!("unknown command: {}", command)),
+            command => Err(anyhow!("unknown command: {}", command)),
         }
     }
 
@@ -190,7 +190,7 @@ impl App {
 
         let task = task.build();
         self.m_task_manager.add_task(task);
-        return Ok(());
+        Ok(())
     }
 
     fn handle_edit(&mut self, index: usize) -> Result<()> {
@@ -265,7 +265,7 @@ impl App {
 
         let task = task.build();
         self.m_task_manager.add_task(task);
-        return Ok(());
+        Ok(())
     }
 
     fn handle_quit(&mut self) -> Result<()> {
@@ -274,7 +274,7 @@ impl App {
         let json = serde_json::to_string(&self.m_task_manager)?;
         file.write_all(json.as_bytes())?;
 
-        return Ok(());
+        Ok(())
     }
 
     pub fn run(&mut self) -> Result<()> {
@@ -289,7 +289,7 @@ impl App {
                     }
                 },
                 Ok(ManagerCommand::Remove(index)) => {
-                    if let None = self.m_task_manager.take_task(index) {
+                    if self.m_task_manager.take_task(index).is_none() {
                         println!("   Error: index out of bounds");
                     }
                 }
@@ -322,6 +322,6 @@ impl App {
             }
         }
 
-        return Ok(());
+        Ok(())
     }
 }

@@ -8,5 +8,5 @@ use app_driver::*;
 
 fn main() -> Result<()> {
     let mut app = App::new();
-    return app.run();
+    app.run()
 }

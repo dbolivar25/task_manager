@@ -10,9 +10,9 @@ pub struct TaskManager {
 
 impl TaskManager {
     pub fn new() -> TaskManager {
-        return TaskManager {
+        TaskManager {
             m_tasks: Vec::new(),
-        };
+        }
     }
 
     fn sort_tasks(&mut self) {
@@ -21,7 +21,7 @@ impl TaskManager {
                 return b.get_weight().cmp(&a.get_weight());
             }
 
-            return b.partial_cmp(a).unwrap_or(std::cmp::Ordering::Equal);
+            b.partial_cmp(a).unwrap_or(std::cmp::Ordering::Equal)
         });
     }
 
@@ -36,14 +36,14 @@ impl TaskManager {
 
     pub fn take_task(&mut self, index: usize) -> Option<Task> {
         if index >= self.m_tasks.len() {
-            return None;
+            None
         } else {
-            return Some(self.m_tasks.remove(index));
+            Some(self.m_tasks.remove(index))
         }
     }
 
     pub fn is_empty(&self) -> bool {
-        return self.m_tasks.is_empty();
+        self.m_tasks.is_empty()
     }
 }
 
@@ -58,6 +58,6 @@ impl Display for TaskManager {
             write!(f, "| {:3} {}", num, task)?;
         }
 
-        return Ok(());
+        Ok(())
     }
 }
