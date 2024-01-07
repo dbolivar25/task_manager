@@ -10,12 +10,15 @@ enum ManagerCommand {
     Remove(usize),
     Edit(usize),
     List,
+    Tick(usize),
+    Help,
     Quit,
     NoOp,
 }
 
 pub struct App {
     m_task_manager: TaskManager,
+    m_print_help: bool,
 }
 
 impl App {
@@ -25,6 +28,7 @@ impl App {
             Err(_) => {
                 return App {
                     m_task_manager: TaskManager::new(),
+                    m_print_help: false,
                 }
             }
         };
@@ -36,14 +40,14 @@ impl App {
                 println!("   Error: failed to load session from file");
                 return App {
                     m_task_manager: TaskManager::new(),
+                    m_print_help: false,
                 };
             }
         };
 
-        dbg!(&task_manager);
-
         App {
             m_task_manager: task_manager,
+            m_print_help: false,
         }
     }
 
@@ -54,7 +58,9 @@ impl App {
         println!("|- create                -|");
         println!("|- remove <idx>          -|");
         println!("|- edit   <idx>          -|");
+        println!("|- tick   <days>         -|");
         println!("|- list                  -|");
+        println!("|- help                  -|");
         println!("|- quit                  -|");
         println!("|- --------------------- -|\n");
         print!("|> ");
@@ -109,6 +115,26 @@ impl App {
                 }
 
                 Ok(ManagerCommand::List)
+            }
+            "tick" => {
+                let num_days = if let Some(num_days) = iter.next() {
+                    num_days.parse::<usize>()?
+                } else {
+                    1
+                };
+
+                if iter.next().is_some() {
+                    return Err(anyhow!("tick command takes at most one argument"));
+                }
+
+                Ok(ManagerCommand::Tick(num_days))
+            }
+            "help" => {
+                if iter.next().is_some() {
+                    return Err(anyhow!("help command does not take arguments"));
+                }
+
+                Ok(ManagerCommand::Help)
             }
             "quit" => {
                 if iter.next().is_some() {
@@ -195,10 +221,16 @@ impl App {
 
     fn handle_edit(&mut self, index: usize) -> Result<()> {
         let mut input = String::new();
-        let task = match self.m_task_manager.take_task(index) {
-            Some(task) => task.edit(),
+
+        match self.m_task_manager.peek_task(index) {
+            Some(task) => {
+                println!("\n-| <> | Context    | Description               | Start  | End    | Finish | Weight |");
+                println!("-| <> {}", task);
+            }
             None => return Err(anyhow!("index out of bounds")),
         };
+
+        let task = self.m_task_manager.take_task(index).unwrap().edit();
 
         println!("-| Context: ");
         print!("   |> ");
@@ -268,8 +300,45 @@ impl App {
         Ok(())
     }
 
+    fn handle_tick(&mut self, num_days: usize) -> Result<()> {
+        let mut ticked_tasks = Vec::new();
+
+        while let Some(task) = self.m_task_manager.take_task(0) {
+            let days_to_start = task.get_days_to_start();
+            let days_to_end = task.get_days_to_end();
+
+            let ticked_task = task
+                .edit()
+                .with_days_to_start(days_to_start.saturating_sub(num_days))
+                .with_days_to_end(days_to_end.saturating_sub(num_days))
+                .build();
+            ticked_tasks.push(ticked_task);
+        }
+
+        for task in ticked_tasks {
+            self.m_task_manager.add_task(task);
+        }
+
+        Ok(())
+    }
+
+    fn handle_help(&mut self) {
+        println!("\n|- ------------------------------------------------- -|");
+        println!("|-                     TaskManager                   -|");
+        println!("|- ------------------------------------------------- -|");
+        println!("|- create        -> add a new task to the list       -|");
+        println!("|- remove <idx>  -> remove the n'th task in the list -|");
+        println!("|- edit   <idx>  -> edit the n'th task in the list   -|");
+        println!("|- tick   <days> -> subtract n days from all tasks   -|");
+        println!("|- list          -> list all tasks in the list       -|");
+        println!("|- help          -> toggle command descriptions      -|");
+        println!("|- quit          -> exit application                 -|");
+        println!("|- ------------------------------------------------- -|\n");
+        print!("|> ");
+        std::io::stdout().flush().unwrap();
+    }
+
     fn handle_quit(&mut self) -> Result<()> {
-        // serialize task manager state
         let mut file = std::fs::File::create("task_manager.json")?;
         let json = serde_json::to_string(&self.m_task_manager)?;
         file.write_all(json.as_bytes())?;
@@ -279,7 +348,12 @@ impl App {
 
     pub fn run(&mut self) -> Result<()> {
         loop {
-            self.print_prompt();
+            if self.m_print_help {
+                self.handle_help();
+            } else {
+                self.print_prompt();
+            }
+
             let input = App::read_input();
             match input {
                 Ok(ManagerCommand::Create) => match self.handle_create() {
@@ -303,8 +377,17 @@ impl App {
                     if self.m_task_manager.is_empty() {
                         println!("   Error: no tasks to list")
                     } else {
-                        println!("{}", self.m_task_manager);
+                        print!("{}", self.m_task_manager);
                     }
+                }
+                Ok(ManagerCommand::Tick(num_days)) => match self.handle_tick(num_days) {
+                    Ok(_) => {}
+                    Err(e) => {
+                        println!("   Error: {}", e);
+                    }
+                },
+                Ok(ManagerCommand::Help) => {
+                    self.m_print_help = !self.m_print_help;
                 }
                 Ok(ManagerCommand::Quit) => {
                     match self.handle_quit() {
