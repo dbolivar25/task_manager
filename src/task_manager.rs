@@ -1,8 +1,9 @@
 use std::fmt::Display;
+use serde::{Serialize, Deserialize};
 
 use crate::task::*;
 
-#[derive(Debug)]
+#[derive(Debug, Serialize, Deserialize, Clone)]
 pub struct TaskManager {
     m_tasks: Vec<Task>,
 }

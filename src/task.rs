@@ -1,5 +1,5 @@
+use serde::{Deserialize, Serialize};
 use std::fmt::Display;
-use serde::{Serialize, Deserialize};
 
 #[derive(Debug, PartialEq, Eq, PartialOrd, Ord, Clone, Serialize, Deserialize, Copy)]
 pub enum Weight {
@@ -40,7 +40,7 @@ impl TaskBuilder {
             m_description: String::new(),
             m_days_to_start: 0,
             m_days_to_end: 0,
-            m_weight: Weight::Low,
+            m_weight: Weight::Med,
         };
     }
 
@@ -70,18 +70,25 @@ impl TaskBuilder {
     }
 
     pub fn build(self) -> Task {
-        let priority = match self.m_weight {
-            Weight::High => 3.0,
-            Weight::Med => 2.0,
-            Weight::Low => 1.0,
-        } / (self.m_days_to_end - self.m_days_to_start) as f32;
+        let days_to_finish = self.m_days_to_end.saturating_sub(self.m_days_to_start);
+
+        let priority = match days_to_finish {
+            0 => std::f32::MAX,
+            days_to_finish => {
+                (match self.m_weight {
+                    Weight::High => 3.0,
+                    Weight::Med => 2.0,
+                    Weight::Low => 1.0,
+                }) / days_to_finish as f32
+            }
+        };
 
         return Task {
             m_context: self.m_context,
             m_description: self.m_description,
             m_days_to_start: self.m_days_to_start,
             m_days_to_end: self.m_days_to_end,
-            m_days_to_finish: self.m_days_to_end - self.m_days_to_start,
+            m_days_to_finish: self.m_days_to_end.saturating_sub(self.m_days_to_start),
             m_weight: self.m_weight,
             m_priority: priority,
         };
@@ -147,7 +154,7 @@ impl PartialOrd for Task {
 
 impl Display for Task {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(
+        writeln!(
             f,
             "| {:10} | {:25} | {:6} | {:6} | {:6} | {:7} |",
             self.m_context,
@@ -155,7 +162,7 @@ impl Display for Task {
             self.m_days_to_start,
             self.m_days_to_end,
             self.m_days_to_finish,
-            self.m_weight
+            self.m_weight,
         )?;
 
         return Ok(());

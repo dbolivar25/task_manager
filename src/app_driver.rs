@@ -20,8 +20,30 @@ pub struct App {
 
 impl App {
     pub fn new() -> App {
+        let file = match std::fs::read_to_string("task_manager.json") {
+            Ok(file) => file,
+            Err(_) => {
+                return App {
+                    m_task_manager: TaskManager::new(),
+                }
+            }
+        };
+
+        let task_manager = match serde_json::from_str(&file) {
+            Ok(task_manager) => task_manager,
+            Err(err) => {
+                dbg!(&err);
+                println!("   Error: failed to load session from file");
+                return App {
+                    m_task_manager: TaskManager::new(),
+                };
+            }
+        };
+
+        dbg!(&task_manager);
+
         return App {
-            m_task_manager: TaskManager::new(),
+            m_task_manager: task_manager,
         };
     }
 
@@ -246,6 +268,15 @@ impl App {
         return Ok(());
     }
 
+    fn handle_quit(&mut self) -> Result<()> {
+        // serialize task manager state
+        let mut file = std::fs::File::create("task_manager.json")?;
+        let json = serde_json::to_string(&self.m_task_manager)?;
+        file.write_all(json.as_bytes())?;
+
+        return Ok(());
+    }
+
     pub fn run(&mut self) -> Result<()> {
         loop {
             self.print_prompt();
@@ -276,6 +307,12 @@ impl App {
                     }
                 }
                 Ok(ManagerCommand::Quit) => {
+                    match self.handle_quit() {
+                        Ok(_) => {}
+                        Err(e) => {
+                            println!("   Error: {}", e);
+                        }
+                    }
                     break;
                 }
                 Ok(ManagerCommand::NoOp) => {}
