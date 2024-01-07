@@ -1,5 +1,5 @@
+use serde::{Deserialize, Serialize};
 use std::fmt::Display;
-use serde::{Serialize, Deserialize};
 
 use crate::task::*;
 
@@ -30,6 +30,11 @@ impl TaskManager {
         self.sort_tasks();
     }
 
+    pub fn add_tasks(&mut self, tasks: Vec<Task>) {
+        self.m_tasks.extend(tasks);
+        self.sort_tasks();
+    }
+
     pub fn peek_task(&self, index: usize) -> Option<&Task> {
         return self.m_tasks.get(index);
     }
@@ -40,6 +45,14 @@ impl TaskManager {
         } else {
             Some(self.m_tasks.remove(index))
         }
+    }
+
+    pub fn map<F>(&mut self, f: F)
+    where
+        F: FnMut(Task) -> Task,
+    {
+        self.m_tasks = self.m_tasks.drain(..).map(f).collect();
+        self.sort_tasks();
     }
 
     pub fn is_empty(&self) -> bool {

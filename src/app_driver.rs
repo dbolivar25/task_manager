@@ -317,23 +317,15 @@ impl App {
     }
 
     fn handle_tick(&mut self, num_days: usize) -> Result<()> {
-        let mut ticked_tasks = Vec::new();
-
-        while let Some(task) = self.m_task_manager.take_task(0) {
+        self.m_task_manager.map(|task| {
             let days_to_start = task.get_days_to_start();
             let days_to_end = task.get_days_to_end();
 
-            let ticked_task = task
-                .edit()
+            task.edit()
                 .with_days_to_start(days_to_start.saturating_sub(num_days))
                 .with_days_to_end(days_to_end.saturating_sub(num_days))
-                .build();
-            ticked_tasks.push(ticked_task);
-        }
-
-        for task in ticked_tasks {
-            self.m_task_manager.add_task(task);
-        }
+                .build()
+        });
 
         Ok(())
     }
