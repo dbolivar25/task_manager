@@ -1,9 +1,9 @@
 # Overview
 
-Rust Task Manager is a simple, yet effective task management application written
-in Rust. It allows users to create, manage, and organize tasks with ease. The
-application is built with modularity and simplicity in mind, providing a clear
-and intuitive interface for managing daily tasks.
+TaskManager is a simple task management application written in Rust. It allows
+users to create, manage, and organize tasks with ease. The application is built
+with modularity and simplicity in mind, providing a clear and intuitive
+interface for managing daily tasks.
 
 ## Features
 
