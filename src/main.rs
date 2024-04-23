@@ -7,6 +7,5 @@ use anyhow::*;
 use app_driver::*;
 
 fn main() -> Result<()> {
-    let mut app = App::new();
-    app.run()
+    App::new().run()
 }

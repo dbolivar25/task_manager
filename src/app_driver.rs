@@ -1,4 +1,4 @@
-use std::io::Write;
+use std::{fs, io::Write};
 
 use anyhow::{anyhow, Result};
 
@@ -6,7 +6,7 @@ use crate::task::*;
 use crate::task_manager::*;
 
 enum ManagerCommand {
-    Create,
+    New,
     Remove(usize),
     Edit(usize),
     Tick(usize),
@@ -23,27 +23,10 @@ pub struct App {
 
 impl App {
     pub fn new() -> App {
-        let file = match std::fs::read_to_string("task_manager.json") {
-            Ok(file) => file,
-            Err(_) => {
-                return App {
-                    m_task_manager: TaskManager::new(),
-                    m_print_help: false,
-                }
-            }
-        };
-
-        let task_manager = match serde_json::from_str(&file) {
-            Ok(task_manager) => task_manager,
-            Err(err) => {
-                dbg!(&err);
-                println!("   Error: failed to load session from file");
-                return App {
-                    m_task_manager: TaskManager::new(),
-                    m_print_help: false,
-                };
-            }
-        };
+        let task_manager = fs::read_to_string("task_manager.json")
+            .map_err(|_| anyhow!("failed to read task_manager.json"))
+            .and_then(|str| serde_json::from_str(&str).map_err(|_| anyhow!("failed to parse json")))
+            .unwrap_or_else(|_| TaskManager::new());
 
         App {
             m_task_manager: task_manager,
@@ -55,7 +38,7 @@ impl App {
         println!("\n|- --------------------- -|");
         println!("|-      TaskManager      -|");
         println!("|- --------------------- -|");
-        println!("|- create                -|");
+        println!("|- new                   -|");
         println!("|- remove <idx>          -|");
         println!("|- edit   <idx>          -|");
         println!("|- tick   <days>         -|");
@@ -71,7 +54,7 @@ impl App {
         println!("\n|- ------------------------------------------------- -|");
         println!("|-                     TaskManager                   -|");
         println!("|- ------------------------------------------------- -|");
-        println!("|- create        -> add a new task to the list       -|");
+        println!("|- new           -> add a new task to the list       -|");
         println!("|- remove <idx>  -> remove the n'th task in the list -|");
         println!("|- edit   <idx>  -> edit the n'th task in the list   -|");
         println!("|- tick   <days> -> subtract n days from all tasks   -|");
@@ -90,18 +73,18 @@ impl App {
         let mut iter = input.split_whitespace();
         let command = match iter.next() {
             Some(command) => command,
-            None => return Ok(ManagerCommand::NoOp),
+            None => return Ok(ManagerCommand::Quit),
         };
 
         match command.to_lowercase().as_str() {
-            "create" => {
+            "new" => {
                 if iter.next().is_none() {
-                    Ok(ManagerCommand::Create)
+                    Ok(ManagerCommand::New)
                 } else {
-                    Err(anyhow!("create command does not take arguments"))
+                    Err(anyhow!("new command does not take arguments"))
                 }
             }
-            "remove" => {
+            "rm" | "remove" => {
                 let index = match iter.next() {
                     Some(index) => index.parse::<usize>()?,
                     None => return Err(anyhow!("remove command takes one argument")),
@@ -113,7 +96,7 @@ impl App {
 
                 Ok(ManagerCommand::Remove(index))
             }
-            "edit" => {
+            "ed" | "edit" => {
                 let index = match iter.next() {
                     Some(index) => index.parse::<usize>()?,
                     None => return Err(anyhow!("edit command takes one argument")),
@@ -125,14 +108,14 @@ impl App {
 
                 Ok(ManagerCommand::Edit(index))
             }
-            "list" => {
+            "ls" | "list" => {
                 if iter.next().is_some() {
                     return Err(anyhow!("list command does not take arguments"));
                 }
 
                 Ok(ManagerCommand::List)
             }
-            "tick" => {
+            "tk" | "tic" | "tick" => {
                 let num_days = if let Some(num_days) = iter.next() {
                     num_days.parse::<usize>()?
                 } else {
@@ -145,14 +128,15 @@ impl App {
 
                 Ok(ManagerCommand::Tick(num_days))
             }
-            "help" => {
+            "h" | "hlp" | "help" => {
                 if iter.next().is_some() {
                     return Err(anyhow!("help command does not take arguments"));
                 }
 
                 Ok(ManagerCommand::Help)
             }
-            "quit" => {
+            // command d for quit
+            "q" | "quit" => {
                 if iter.next().is_some() {
                     return Err(anyhow!("quit command does not take arguments"));
                 }
@@ -221,9 +205,9 @@ impl App {
             "" => task,
             weight => {
                 let weight = match weight.to_lowercase().as_str() {
-                    "high" => Weight::High,
-                    "medium" => Weight::Med,
-                    "low" => Weight::Low,
+                    "high" | "hi" | "h" | "3" => Weight::High,
+                    "medium" | "med" | "m" | "2" => Weight::Med,
+                    "low" | "lo" | "l" | "1" => Weight::Low,
                     _ => return Err(anyhow!("unknown weight: {}", weight)),
                 };
                 task.with_weight(weight)
@@ -236,84 +220,105 @@ impl App {
     }
 
     fn handle_edit(&mut self, index: usize) -> Result<()> {
-        let mut input = String::new();
+        let mut buf = String::new();
 
         match self.m_task_manager.peek_task(index) {
             Some(task) => {
-                println!("\n-| <> | Context    | Description               | Start  | End    | Finish | Weight |");
-                println!("-| <> {}", task);
+                println!("\n| Idx | Context    | Description               | Start  | End    | Finish | Weight |");
+                println!("| {:3} {}", index, task);
             }
             None => return Err(anyhow!("index out of bounds")),
         };
 
-        let task = self.m_task_manager.take_task(index).unwrap().edit();
+        let original_task = self.m_task_manager.take_task(index).unwrap();
+        let task = original_task.clone().edit();
 
         println!("-| Context: ");
         print!("   |> ");
         std::io::stdout().flush().unwrap();
-        std::io::stdin().read_line(&mut input).unwrap();
-        let task = match input.trim() {
+        std::io::stdin().read_line(&mut buf).unwrap();
+        let task = match buf.trim() {
             "" => task,
             context => task.with_context(context.into()),
         };
-        input.clear();
+        buf.clear();
 
         println!("-| Description: ");
         print!("   |> ");
         std::io::stdout().flush().unwrap();
-        std::io::stdin().read_line(&mut input).unwrap();
-        let task = match input.trim() {
+        std::io::stdin().read_line(&mut buf).unwrap();
+        let task = match buf.trim() {
             "" => task,
             description => task.with_description(description.into()),
         };
-        input.clear();
+        buf.clear();
 
         println!("-| Days to start: ");
         print!("   |> ");
         std::io::stdout().flush().unwrap();
-        std::io::stdin().read_line(&mut input).unwrap();
-        let task = match input.trim() {
+        std::io::stdin().read_line(&mut buf).unwrap();
+        let task = match buf.trim() {
             "" => task,
             days_to_start => {
-                let days_to_start = days_to_start.parse::<usize>()?;
-                task.with_days_to_start(days_to_start)
+                if let Ok(days_to_start) = days_to_start.parse::<usize>() {
+                    task.with_days_to_start(days_to_start)
+                } else {
+                    self.m_task_manager.add_task(original_task);
+
+                    return Err(anyhow!("invalid days to start"));
+                }
             }
         };
-        input.clear();
+        buf.clear();
 
         println!("-| Days to end: ");
         print!("   |> ");
         std::io::stdout().flush().unwrap();
-        std::io::stdin().read_line(&mut input).unwrap();
-        let task = match input.trim() {
+        std::io::stdin().read_line(&mut buf).unwrap();
+        let task = match buf.trim() {
             "" => task,
             days_to_end => {
-                let days_to_end = days_to_end.parse::<usize>()?;
-                task.with_days_to_end(days_to_end)
+                if let Ok(days_to_end) = days_to_end.parse::<usize>() {
+                    task.with_days_to_end(days_to_end)
+                } else {
+                    self.m_task_manager.add_task(original_task);
+                    return Err(anyhow!("invalid days to end"));
+                }
             }
         };
-        input.clear();
+        buf.clear();
 
         println!("-| Weight: ");
         print!("   |> ");
         std::io::stdout().flush().unwrap();
-        std::io::stdin().read_line(&mut input).unwrap();
-        let task = match input.trim() {
+        std::io::stdin().read_line(&mut buf).unwrap();
+        let task = match buf.trim().to_lowercase().as_str() {
             "" => task,
+            "high" | "hi" | "h" | "3" => task.with_weight(Weight::High),
+            "medium" | "med" | "m" | "2" => task.with_weight(Weight::Med),
+            "low" | "lo" | "l" | "1" => task.with_weight(Weight::Low),
             weight => {
-                let weight = match weight.to_lowercase().as_str() {
-                    "high" => Weight::High,
-                    "medium" => Weight::Med,
-                    "low" => Weight::Low,
-                    _ => return Err(anyhow!("unknown weight: {}", weight)),
-                };
-                task.with_weight(weight)
+                self.m_task_manager.add_task(original_task);
+                return Err(anyhow!("unknown weight: {}", weight));
             }
         };
+        buf.clear();
 
-        let task = task.build();
-        self.m_task_manager.add_task(task);
-        Ok(())
+        println!("-| Confirm edit (y/n): ");
+        print!("   |> ");
+        std::io::stdout().flush().unwrap();
+        std::io::stdin().read_line(&mut buf).unwrap();
+        match buf.trim().to_lowercase().as_str() {
+            "" | "y" | "yes" => {
+                let task = task.build();
+                self.m_task_manager.add_task(task);
+                Ok(())
+            }
+            _ => {
+                self.m_task_manager.add_task(original_task);
+                Ok(())
+            }
+        }
     }
 
     fn handle_tick(&mut self, num_days: usize) -> Result<()> {
@@ -338,7 +343,7 @@ impl App {
         Ok(())
     }
 
-    pub fn run(&mut self) -> Result<()> {
+    pub fn run(mut self) -> Result<()> {
         loop {
             if self.m_print_help {
                 self.print_help_prompt();
@@ -348,23 +353,21 @@ impl App {
 
             let input = App::read_input();
             match input {
-                Ok(ManagerCommand::Create) => match self.handle_create() {
-                    Ok(_) => {}
-                    Err(e) => {
+                Ok(ManagerCommand::New) => {
+                    if let Err(e) = self.handle_create() {
                         println!("   Error: {}", e);
                     }
-                },
+                }
                 Ok(ManagerCommand::Remove(index)) => {
-                    if self.m_task_manager.take_task(index).is_none() {
+                    if let None = self.m_task_manager.take_task(index) {
                         println!("   Error: index out of bounds");
                     }
                 }
-                Ok(ManagerCommand::Edit(index)) => match self.handle_edit(index) {
-                    Ok(_) => {}
-                    Err(e) => {
+                Ok(ManagerCommand::Edit(index)) => {
+                    if let Err(e) = self.handle_edit(index) {
                         println!("   Error: {}", e);
                     }
-                },
+                }
                 Ok(ManagerCommand::List) => {
                     if self.m_task_manager.is_empty() {
                         println!("   Error: no tasks to list")
@@ -372,22 +375,19 @@ impl App {
                         print!("{}", self.m_task_manager);
                     }
                 }
-                Ok(ManagerCommand::Tick(num_days)) => match self.handle_tick(num_days) {
-                    Ok(_) => {}
-                    Err(e) => {
+                Ok(ManagerCommand::Tick(num_days)) => {
+                    if let Err(e) = self.handle_tick(num_days) {
                         println!("   Error: {}", e);
                     }
-                },
+                }
                 Ok(ManagerCommand::Help) => {
                     self.m_print_help = !self.m_print_help;
                 }
                 Ok(ManagerCommand::Quit) => {
-                    match self.handle_quit() {
-                        Ok(_) => {}
-                        Err(e) => {
-                            println!("   Error: {}", e);
-                        }
+                    if let Err(e) = self.handle_quit() {
+                        println!("   Error: {}", e);
                     }
+
                     break;
                 }
                 Ok(ManagerCommand::NoOp) => {}
